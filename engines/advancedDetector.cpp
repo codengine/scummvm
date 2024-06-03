@@ -1358,7 +1358,14 @@ Common::JSONValue* jsonFromStream(Common::SeekableReadStream &stream) {
 }
 
 SerializedMetaEngineDetection::SerializedMetaEngineDetection(const char *jsonName, const EnumDecl *gameFlags, const void* descs, uint descItemSize, const PlainGameDescriptor *gameIds)
-	: AdvancedMetaEngineDetection(descs, descItemSize, gameIds), _gameFlagNames(gameFlags) {
+	: AdvancedMetaEngineDetection(descs, descItemSize, gameIds) {
+
+	if(gameFlags == nullptr) {
+		_gameFlagNames = g_adgfFlagNames;
+	} else {
+		_gameFlagNames = gameFlags;
+	}
+
 	auto jsonFile = SearchMan.createReadStreamForMember(jsonName);
 	if (!jsonFile) {
 		// This is mostly useful as a transition path, as we will conveniently dump all the existing

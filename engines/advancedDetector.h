@@ -501,15 +501,9 @@ protected:
 };
 
 class SerializedMetaEngineDetection : public AdvancedMetaEngineDetection {
-private:
-	ADGameDescription *_descriptions;
 	const EnumDecl *_gameFlagNames;
 public:
 	SerializedMetaEngineDetection(const char *jsonName, const EnumDecl *gameFlags, const void* descs, uint descItemSize, const PlainGameDescriptor *gameIds);
-	~SerializedMetaEngineDetection() {
-		delete[] _gameDescriptors;
-	}
-
 	void dumpDescriptors(const char *jsonName);
 };
 
@@ -632,11 +626,11 @@ public:
 			return;
 
 		Common::Path filename = node.getPath();
-		
+
 		if (archiveHashMap.contains(filename)) {
 			delete archiveHashMap[filename];
 		}
-		
+
 		archiveHashMap.setVal(filename, archivePtr);
 	}
 

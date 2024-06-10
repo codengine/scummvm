@@ -198,7 +198,8 @@ Networking::Request *BoxStorage::streamFileById(const Common::String &id, Networ
 		Common::String url = Common::String::format(BOX_API_FILES_CONTENT, id.c_str());
 		Common::String header = "Authorization: Bearer " + _token;
 		curl_slist *headersList = curl_slist_append(nullptr, header.c_str());
-		Networking::NetworkReadStream *stream = new Networking::NetworkReadStream(url.c_str(), headersList, "");
+		Networking::NetworkReadStream *stream = new Networking::NetworkReadStream(url.c_str(), headersList);
+		stream->registerHandle();
 		(*callback)(Networking::NetworkReadStreamResponse(nullptr, stream));
 	}
 	delete callback;

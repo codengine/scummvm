@@ -133,32 +133,7 @@ bool NetworkReadStream::reuseCurl(const char *url, curl_slist *headersList) {
 	return true;
 }
 
-void NetworkReadStream::setupBufferContents(const byte *buffer, uint32 bufferSize, bool uploading, bool usingPatch, bool post) {
-	if (uploading) {
-		curl_easy_setopt(_easy, CURLOPT_UPLOAD, 1L);
-		curl_easy_setopt(_easy, CURLOPT_READDATA, this);
-		curl_easy_setopt(_easy, CURLOPT_READFUNCTION, curlReadDataCallback);
-		_sendingContentsBuffer = buffer;
-		_sendingContentsSize = bufferSize;
-	} else if (usingPatch) {
-		curl_easy_setopt(_easy, CURLOPT_CUSTOMREQUEST, "PATCH");
-	} else {
-		if (post || bufferSize != 0) {
-			curl_easy_setopt(_easy, CURLOPT_POSTFIELDSIZE, bufferSize);
-#if LIBCURL_VERSION_NUM >= 0x071101
-			// CURLOPT_COPYPOSTFIELDS available since curl 7.17.1
-			curl_easy_setopt(_easy, CURLOPT_COPYPOSTFIELDS, buffer);
-#else
-			_bufferCopy = (byte*)malloc(bufferSize);
-			memcpy(_bufferCopy, buffer, bufferSize);
-			curl_easy_setopt(_easy, CURLOPT_POSTFIELDS, _bufferCopy);
-#endif
-		}
-	}
-	ConnMan.registerEasyHandle(_easy);
-}
-
-void NetworkReadStream::setupFormMultipart(const Common::HashMap<Common::String, Common::String> &formFields, const Common::HashMap<Common::String, Common::Path> &formFiles) {
+void NetworkReadStream::setupPostFormMultipart(const Common::HashMap<Common::String, Common::String> &formFields, const Common::HashMap<Common::String, Common::Path> &formFiles) {
 	// set POST multipart upload form fields/files
 	struct curl_httppost *formpost = nullptr;
 	struct curl_httppost *lastptr = nullptr;
@@ -193,48 +168,58 @@ void NetworkReadStream::setupFormMultipart(const Common::HashMap<Common::String,
 	ConnMan.registerEasyHandle(_easy);
 }
 
-NetworkReadStream::NetworkReadStream(const char *url, curl_slist *headersList, const Common::String &postFields, bool uploading, bool usingPatch, bool keepAlive, long keepAliveIdle, long keepAliveInterval):
-		_backingStream(DisposeAfterUse::YES), _keepAlive(keepAlive), _keepAliveIdle(keepAliveIdle), _keepAliveInterval(keepAliveInterval), _errorBuffer(nullptr), _errorCode(CURLE_OK) {
+NetworkReadStream::NetworkReadStream(const char *url, curl_slist *headersList):
+	_backingStream(DisposeAfterUse::YES), _keepAlive(false), _keepAliveIdle(CURL_KEEPALIVE_DEFAULT_IDLE_SECONDS), _keepAliveInterval(CURL_KEEPALIVE_DEFAULT_INTERVAL_SECONDS), _errorBuffer(nullptr), _errorCode(CURLE_OK) {
 	initCurl(url, headersList);
-	setupBufferContents((const byte *)postFields.c_str(), postFields.size(), uploading, usingPatch, false);
 }
 
-NetworkReadStream::NetworkReadStream(const char *url, curl_slist *headersList, const Common::HashMap<Common::String, Common::String> &formFields, const Common::HashMap<Common::String, Common::Path> &formFiles, bool keepAlive, long keepAliveIdle, long keepAliveInterval):
-		_backingStream(DisposeAfterUse::YES), _keepAlive(keepAlive), _keepAliveIdle(keepAliveIdle), _keepAliveInterval(keepAliveInterval), _errorBuffer(nullptr), _errorCode(CURLE_OK) {
-	initCurl(url, headersList);
-	setupFormMultipart(formFields, formFiles);
+void NetworkReadStream::setupPost(const Common::String &postFields) {
+	setupPost(reinterpret_cast<const byte *>(postFields.c_str()), postFields.size());
 }
 
-NetworkReadStream::NetworkReadStream(const char *url, curl_slist *headersList, const byte *buffer, uint32 bufferSize, bool uploading, bool usingPatch, bool post, bool keepAlive, long keepAliveIdle, long keepAliveInterval):
-		_backingStream(DisposeAfterUse::YES), _keepAlive(keepAlive), _keepAliveIdle(keepAliveIdle), _keepAliveInterval(keepAliveInterval), _errorBuffer(nullptr), _errorCode(CURLE_OK) {
-	initCurl(url, headersList);
-	setupBufferContents(buffer, bufferSize, uploading, usingPatch, post);
+void NetworkReadStream::setupPost(const byte *buffer, const uint32 bufferSize) {
+	curl_easy_setopt(_easy, CURLOPT_POSTFIELDSIZE, bufferSize);
+#if LIBCURL_VERSION_NUM >= 0x071101
+	// CURLOPT_COPYPOSTFIELDS available since curl 7.17.1
+	curl_easy_setopt(_easy, CURLOPT_COPYPOSTFIELDS, buffer);
+#else
+	_bufferCopy = (byte*)malloc(bufferSize);
+	memcpy(_bufferCopy, buffer, bufferSize);
+	curl_easy_setopt(_easy, CURLOPT_POSTFIELDS, _bufferCopy);
+#endif
 }
 
-bool NetworkReadStream::reuse(const char *url, curl_slist *headersList, const Common::String &postFields, bool uploading, bool usingPatch) {
+void NetworkReadStream::setupUploading(const byte *buffer, const uint32 bufferSize) {
+	curl_easy_setopt(_easy, CURLOPT_UPLOAD, 1L);
+	curl_easy_setopt(_easy, CURLOPT_READDATA, this);
+	curl_easy_setopt(_easy, CURLOPT_READFUNCTION, curlReadDataCallback);
+	_sendingContentsBuffer = buffer;
+	_sendingContentsSize = bufferSize;
+}
+
+void NetworkReadStream::setupKeepAlive(const bool keepAlive, const long keepAliveIdle, const long keepAliveInterval) {
+	_keepAlive = keepAlive;
+	_keepAliveIdle = keepAliveIdle;
+	_keepAliveInterval = keepAliveInterval;
+}
+
+void NetworkReadStream::registerHandle() const {
+	ConnMan.registerEasyHandle(_easy);
+}
+
+void NetworkReadStream::usePatch() const {
+	useCustomRequest("PATCH");
+}
+
+void NetworkReadStream::useCustomRequest(const Common::String &method) const {
+	curl_easy_setopt(_easy, CURLOPT_CUSTOMREQUEST, method.c_str());
+}
+
+bool NetworkReadStream::reuse(const char *url, curl_slist *headersList) {
 	if (!reuseCurl(url, headersList))
 		return false;
 
 	_backingStream = Common::MemoryReadWriteStream(DisposeAfterUse::YES);
-	setupBufferContents((const byte *)postFields.c_str(), postFields.size(), uploading, usingPatch, false);
-	return true;
-}
-
-bool NetworkReadStream::reuse(const char *url, curl_slist *headersList, const Common::HashMap<Common::String, Common::String> &formFields, const Common::HashMap<Common::String, Common::Path> &formFiles) {
-	if (!reuseCurl(url, headersList))
-		return false;
-
-	_backingStream = Common::MemoryReadWriteStream(DisposeAfterUse::YES);
-	setupFormMultipart(formFields, formFiles);
-	return true;
-}
-
-bool NetworkReadStream::reuse(const char *url, curl_slist *headersList, const byte *buffer, uint32 bufferSize, bool uploading, bool usingPatch, bool post) {
-	if (!reuseCurl(url, headersList))
-		return false;
-
-	_backingStream = Common::MemoryReadWriteStream(DisposeAfterUse::YES);
-	setupBufferContents(buffer, bufferSize, uploading, usingPatch, post);
 	return true;
 }
 

@@ -169,7 +169,8 @@ Networking::Request *GoogleDriveStorage::streamFileById(const Common::String &id
 		Common::String url = Common::String::format(GOOGLEDRIVE_API_FILES_ALT_MEDIA, ConnMan.urlEncode(id).c_str());
 		Common::String header = "Authorization: Bearer " + _token;
 		curl_slist *headersList = curl_slist_append(nullptr, header.c_str());
-		Networking::NetworkReadStream *stream = new Networking::NetworkReadStream(url.c_str(), headersList, "");
+		Networking::NetworkReadStream *stream = new Networking::NetworkReadStream(url.c_str(), headersList);
+		stream->registerHandle();
 		(*callback)(Networking::NetworkReadStreamResponse(nullptr, stream));
 	}
 	delete callback;

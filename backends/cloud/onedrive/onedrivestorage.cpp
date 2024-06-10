@@ -151,11 +151,14 @@ void OneDriveStorage::fileInfoCallback(Networking::NetworkReadStreamCallback out
 	}
 
 	const char *url = result.getVal("@microsoft.graph.downloadUrl")->asString().c_str();
-	if (outerCallback)
+	if (outerCallback) {
+		auto const stream = new Networking::NetworkReadStream(url, nullptr);
+		stream->registerHandle();
 		(*outerCallback)(Networking::NetworkReadStreamResponse(
 			response.request,
-			new Networking::NetworkReadStream(url, nullptr, "")
+			stream
 		));
+	}
 
 	delete json;
 	delete outerCallback;

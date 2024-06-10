@@ -39,12 +39,29 @@ CurlRequest::~CurlRequest() {
 	delete[] _bytesBuffer;
 }
 
-NetworkReadStream *CurlRequest::makeStream() {
-	if (_bytesBuffer)
-		return new NetworkReadStream(_url.c_str(), _headersList, _bytesBuffer, _bytesBufferSize, _uploading, _usingPatch, true, _keepAlive, _keepAliveIdle, _keepAliveInterval);
-	if (!_formFields.empty() || !_formFiles.empty())
-		return new NetworkReadStream(_url.c_str(), _headersList, _formFields, _formFiles, _keepAlive, _keepAliveIdle, _keepAliveInterval);
-	return new NetworkReadStream(_url.c_str(), _headersList, _postFields, _uploading, _usingPatch, _keepAlive, _keepAliveIdle, _keepAliveInterval);
+NetworkReadStream *CurlRequest::makeStream() const {
+	auto const stream = new NetworkReadStream(_url.c_str(), _headersList);
+	if (_keepAlive)
+		stream->setupKeepAlive(_keepAlive, _keepAliveInterval, _keepAliveIdle);
+
+	if (_bytesBuffer) {
+		if (_uploading)
+			stream->setupUploading(_bytesBuffer, _bytesBufferSize);
+		else
+			stream->setupPost(_bytesBuffer, _bytesBufferSize);
+		stream->registerHandle();
+	} else if (!_postFields.empty())
+		stream->setupPost(_postFields);
+	else if (!_formFields.empty() || !_formFiles.empty())
+		stream->setupPostFormMultipart(_formFields, _formFiles);
+
+	if (_bytesBuffer || !_postFields.empty() || !_formFields.empty() || !_formFiles.empty())
+		stream->registerHandle();
+
+	if (_usingPatch)
+		stream->usePatch();
+
+	return stream;
 }
 
 void CurlRequest::handle() {

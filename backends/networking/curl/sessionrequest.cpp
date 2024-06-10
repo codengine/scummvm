@@ -68,17 +68,28 @@ void SessionRequest::openLocalFile(const Common::Path &localFile) {
 }
 
 bool SessionRequest::reuseStream() {
-	if (!_stream) {
+	if (!_stream || !_stream->reuse(_url.c_str(), _headersList)) {
 		return false;
 	}
 
-	if (_bytesBuffer)
-		return _stream->reuse(_url.c_str(), _headersList, _bytesBuffer, _bytesBufferSize, _uploading, _usingPatch, true);
+	if(_bytesBuffer) {
+		if(_uploading)
+			_stream->setupUploading(_bytesBuffer, _bytesBufferSize);
+		else
+			_stream->setupPost(_bytesBuffer, _bytesBufferSize);
+	}
+	else if(!_postFields.empty())
+		_stream->setupPost(_postFields);
+	else if (!_formFields.empty() || !_formFiles.empty())
+		_stream->setupPostFormMultipart(_formFields, _formFiles);
 
-	if (!_formFields.empty() || !_formFiles.empty())
-		return _stream->reuse(_url.c_str(), _headersList, _formFields, _formFiles);
+	if(_bytesBuffer || !_postFields.empty() || !_formFields.empty() || !_formFiles.empty())
+		_stream->registerHandle();
 
-	return _stream->reuse(_url.c_str(), _headersList, _postFields, _uploading, _usingPatch);
+	if(_usingPatch)
+		_stream->usePatch();
+
+	return true;
 }
 
 char *SessionRequest::getPreparedContents() {

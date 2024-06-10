@@ -53,7 +53,7 @@ protected:
 	bool _keepAlive;
 	long _keepAliveIdle, _keepAliveInterval;
 
-	NetworkReadStream *makeStream();
+	NetworkReadStream *makeStream() const;
 
 public:
 	CurlRequest(DataCallback cb, ErrorCallback ecb, const Common::String &url);

@@ -37,6 +37,7 @@ class CloudConnectionWizard : public Dialog {
 	enum class Step {
 		NONE,
 		MODE_SELECT,
+		WEBDAV_DATA,
 		QUICK_MODE_STEP_1,
 		QUICK_MODE_STEP_2,
 		QUICK_MODE_SUCCESS,
@@ -74,7 +75,16 @@ class CloudConnectionWizard : public Dialog {
 	StaticTextWidget *_quickModeLabel;
 	ButtonWidget *_manualModeButton;
 	EditTextWidget *_codeBox;
+	uint32 _selectedStorageIndex;
+	StaticTextWidget *_webdavUsernameLabel;
+	EditTextWidget *_webdavUsernameEdit;
+	StaticTextWidget *_webdavPasswordLabel;
+	EditTextWidget *_webdavPasswordEdit;
+	StaticTextWidget *_webdavUrlLabel;
+	EditTextWidget *_webdavUrlEdit;
 
+	void showStepWebdavData();
+	void hideStepWebdavData();
 	// wizard flow
 	void showStep(Step newStep);
 
@@ -120,11 +130,14 @@ class CloudConnectionWizard : public Dialog {
 
 	// logic
 	void storageConnectionCallback(const Networking::ErrorResponse &response);
+	static bool storageIsBusy();
 	void manualModeConnect();
+	void webdavConnect();
+	void webdavConnectCallback(const Networking::ErrorResponse &response);
 	void manualModeStorageConnectionCallback(const Networking::ErrorResponse &response);
 
 public:
-	CloudConnectionWizard();
+	CloudConnectionWizard(uint32 selectedStorageIndex);
 	~CloudConnectionWizard() override;
 
 	void open() override;

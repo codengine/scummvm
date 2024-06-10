@@ -54,10 +54,10 @@ enum {
 	kCloudConnectionWizardLoadCodeCmd = 'WLCd',
 };
 
-CloudConnectionWizard::CloudConnectionWizard() :
+CloudConnectionWizard::CloudConnectionWizard(uint32 selectedStorageIndex) :
 	Dialog("GlobalOptions_Cloud_ConnectionWizard"),
 	_currentStep(Step::NONE), _switchToSuccess(false), _switchToFailure(false),
-	_connecting(false) {
+	_connecting(false), _selectedStorageIndex(selectedStorageIndex) {
 	_backgroundType = GUI::ThemeEngine::kDialogBackgroundPlain;
 
 	_headlineLabel = new StaticTextWidget(this, "GlobalOptions_Cloud_ConnectionWizard.Headline", Common::U32String());
@@ -77,7 +77,21 @@ CloudConnectionWizard::CloudConnectionWizard() :
 	_manualModeButton = nullptr;
 	_codeBox = nullptr;
 
-	showStep(Step::MODE_SELECT);
+	_webdavUsernameLabel = nullptr;
+	_webdavUsernameEdit = nullptr;
+	_webdavPasswordLabel = nullptr;
+	_webdavPasswordEdit = nullptr;
+	_webdavUrlLabel = nullptr;
+	_webdavUrlEdit = nullptr;
+
+	switch (_selectedStorageIndex) {
+	case Cloud::kStorageWebDAV:
+		showStep(Step::WEBDAV_DATA);
+		break;
+	default:
+		showStep(Step::MODE_SELECT);
+		break;
+	}
 
 	_callback = new Common::Callback<CloudConnectionWizard, const Networking::ErrorResponse &>(this, &CloudConnectionWizard::storageConnectionCallback);
 }
@@ -88,6 +102,31 @@ CloudConnectionWizard::~CloudConnectionWizard() {
 #endif // USE_SDL_NET
 
 	delete _callback;
+}
+
+void CloudConnectionWizard::showStepWebdavData() {
+	_headlineLabel->setLabel(_("WebDAV Data"));
+	showContainer("ConnectionWizard_WebdavData");
+	_label0 = new StaticTextWidget(_container, "ConnectionWizard_WebdavData.Line1", _("Please use an app password if possible"));
+	_webdavUsernameLabel = new StaticTextWidget(_container, "ConnectionWizard_WebdavData.UsernameDesc", _("Username"));
+	_webdavUsernameEdit = new EditTextWidget(_container, "ConnectionWizard_WebdavData.Username", Common::U32String());
+	_webdavPasswordLabel = new StaticTextWidget(_container, "ConnectionWizard_WebdavData.PasswordDesc", _("Password"));
+	_webdavPasswordEdit = new EditTextWidget(_container, "ConnectionWizard_WebdavData.Password", Common::U32String());
+	_webdavUrlLabel = new StaticTextWidget(_container, "ConnectionWizard_WebdavData.UrlDesc", _("URL"));
+	_webdavUrlEdit = new EditTextWidget(_container, "ConnectionWizard_WebdavData.Url", Common::U32String("https://example.com/remote.php/dav/files"));
+	showNextButton();
+	_nextStepButton->setEnabled(true);
+}
+
+void CloudConnectionWizard::hideStepWebdavData() {
+	hideContainer();
+	removeWidgetChecked(_webdavUsernameLabel);
+	removeWidgetChecked(_webdavUsernameEdit);
+	removeWidgetChecked(_webdavPasswordLabel);
+	removeWidgetChecked(_webdavPasswordEdit);
+	removeWidgetChecked(_webdavUrlLabel);
+	removeWidgetChecked(_webdavUrlEdit);
+	removeWidgetChecked(_label0);
 }
 
 void CloudConnectionWizard::showStep(Step newStep) {
@@ -129,6 +168,10 @@ void CloudConnectionWizard::showStep(Step newStep) {
 	case Step::MANUAL_MODE_SUCCESS:
 		hideStepManualModeSuccess();
 		break;
+
+	case Step::WEBDAV_DATA:
+		hideStepWebdavData();
+		break;
 	}
 
 	_currentStep = newStep;
@@ -167,6 +210,10 @@ void CloudConnectionWizard::showStep(Step newStep) {
 
 	case Step::MANUAL_MODE_SUCCESS:
 		showStepManualModeSuccess();
+		break;
+
+	case Step::WEBDAV_DATA:
+		showStepWebdavData();
 		break;
 	}
 
@@ -492,30 +539,8 @@ void CloudConnectionWizard::manualModeConnect() {
 	if (code.size() == 0)
 		return;
 
-	// warn about other Storage working
-	if (CloudMan.isWorking()) {
-		bool cancel = true;
-
-		MessageDialog alert(_("Another Storage is working right now. Do you want to interrupt it?"), _("Yes"), _("No"));
-		if (alert.runModal() == GUI::kMessageOK) {
-			if (CloudMan.isDownloading())
-				CloudMan.cancelDownload();
-			if (CloudMan.isSyncing())
-				CloudMan.cancelSync();
-
-			// I believe it still would return `true` here, but just in case
-			if (CloudMan.isWorking()) {
-				MessageDialog alert2(_("Wait until current Storage finishes and try again."));
-				alert2.runModal();
-			} else {
-				cancel = false;
-			}
-		}
-
-		if (cancel) {
-			return;
-		}
-	}
+	if (storageIsBusy())
+		return;
 
 	// parse JSON and display message if failed
 	Common::MemoryWriteStreamDynamic jsonStream(DisposeAfterUse::YES);
@@ -533,7 +558,7 @@ void CloudConnectionWizard::manualModeConnect() {
 		delete callback;
 		if (_label1)
 			// I18N: JSON is name of the format, this message is displayed if user entered something incorrect to the text field
-			_label1->setLabel(_("JSON code contents are malformed."));
+				_label1->setLabel(_("JSON code contents are malformed."));
 		return;
 	}
 
@@ -548,6 +573,94 @@ void CloudConnectionWizard::manualModeConnect() {
 		_prevStepButton->setEnabled(false);
 	if (_nextStepButton)
 		_nextStepButton->setEnabled(false);
+}
+
+bool CloudConnectionWizard::storageIsBusy() {
+	bool cancel = true;
+
+	// warn about other Storage working
+	if (CloudMan.isWorking()) {
+		MessageDialog alert(_("Another Storage is working right now. Do you want to interrupt it?"), _("Yes"), _("No"));
+		if (alert.runModal() == GUI::kMessageOK) {
+			if (CloudMan.isDownloading())
+				CloudMan.cancelDownload();
+			if (CloudMan.isSyncing())
+				CloudMan.cancelSync();
+
+			// I believe it still would return `true` here, but just in case
+			if (CloudMan.isWorking()) {
+				MessageDialog alert2(_("Wait until current Storage finishes and try again."));
+				alert2.runModal();
+			} else {
+				cancel = false;
+			}
+		}
+	} else {
+		cancel = false;
+	}
+
+	return cancel;
+}
+
+void CloudConnectionWizard::webdavConnect() {
+	if (_connecting)
+		return;
+
+	if (_label1)
+		_label1->setLabel(Common::U32String());
+
+	// get the code entered
+	Common::String username;
+	Common::String password;
+	Common::String url;
+	if (_webdavUsernameEdit)
+		username = _webdavUsernameEdit->getEditString().encode();
+	if (_webdavUsernameEdit)
+		password = _webdavPasswordEdit->getEditString().encode();
+	if (_webdavUsernameEdit)
+		url = _webdavUrlEdit->getEditString().encode();
+
+	if (username.empty() || url.empty())
+		return;
+
+	if (storageIsBusy()) return;
+
+	// pass JSON to the manager
+	_connecting = true;
+
+	// disable UI
+	if (_codeBox)
+		_codeBox->setEnabled(false);
+	if (_button0)
+		_button0->setEnabled(false);
+	if (_closeButton)
+		_closeButton->setEnabled(false);
+	if (_prevStepButton)
+		_prevStepButton->setEnabled(false);
+	if (_nextStepButton)
+		_nextStepButton->setEnabled(false);
+}
+
+void CloudConnectionWizard::webdavConnectCallback(const Networking::ErrorResponse &response) {
+	if (response.failed || response.interrupted) {
+		if (response.failed) {
+			const char *knownErrorMessages[] = {
+				_s("OK"),
+				_s("Incorrect JSON.") // see "cloud/basestorage.cpp"
+			};
+			(void)knownErrorMessages;
+
+			_errorMessage = _(response.response.c_str());
+		} else {
+			// I18N: error message displayed on 'Manual Mode: Failure' step of 'Cloud Connection Wizard', describing that storage connection process was interrupted
+			_errorMessage = _("Interrupted.");
+		}
+
+		_switchToFailure = true;
+		return;
+	}
+
+	_switchToSuccess = true;
 }
 
 void CloudConnectionWizard::manualModeStorageConnectionCallback(const Networking::ErrorResponse &response) {
@@ -656,6 +769,10 @@ void CloudConnectionWizard::handleCommand(CommandSender *sender, uint32 cmd, uin
 
 		case Step::MANUAL_MODE_STEP_2:
 			manualModeConnect();
+			break;
+
+		case Step::WEBDAV_DATA:
+			webdavConnect();
 			break;
 
 		default:

@@ -1445,6 +1445,37 @@
 		</layout>
 	</dialog>
 
+	<dialog name = 'ConnectionWizard_WebdavData' overlays = 'GlobalOptions_Cloud_ConnectionWizard.Container' shading = 'dim'>
+		<layout type = 'vertical' padding = '0, 0, 0, 0' spacing = '0'>
+			<widget name = 'Line1' height = 'Globals.Line.Height'/>
+			<layout type = 'horizontal' padding = '0, 0, 0, 0' spacing = '10' align = 'center'>
+				<widget name = 'UsernameDesc'
+						type = 'OptionsLabel'
+				/>
+				<widget name = 'Username'
+						type = 'PopUp'
+				/>
+			</layout>
+			<layout type = 'horizontal' padding = '0, 0, 0, 0' spacing = '10' align = 'center'>
+				<widget name = 'PasswordDesc'
+						type = 'OptionsLabel'
+				/>
+				<widget name = 'Password'
+						type = 'PopUp'
+				/>
+			</layout>
+			<layout type = 'horizontal' padding = '0, 0, 0, 0' spacing = '10' align = 'center'>
+				<widget name = 'UrlDesc'
+						type = 'OptionsLabel'
+				/>
+				<widget name = 'Url'
+						type = 'PopUp'
+				/>
+			</layout>
+		</layout>
+	</dialog>
+
+
 	<dialog name='GlobalOptions_Accessibility' overlays='Dialog.GlobalOptions.TabWidget'>
 		<layout type='vertical' padding='16,16,16,16' spacing='16'>
 			<widget name='TTSCheckbox'

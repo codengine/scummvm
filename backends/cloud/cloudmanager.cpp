@@ -22,12 +22,13 @@
 #include "backends/cloud/cloudmanager.h"
 #include "backends/cloud/box/boxstorage.h"
 #include "backends/cloud/dropbox/dropboxstorage.h"
-#include "backends/cloud/onedrive/onedrivestorage.h"
 #include "backends/cloud/googledrive/googledrivestorage.h"
-#include "common/formats/json.h"
-#include "common/translation.h"
+#include "backends/cloud/onedrive/onedrivestorage.h"
+#include "backends/cloud/webdav/webdav_storage.h"
 #include "common/config-manager.h"
 #include "common/str.h"
+#include "common/translation.h"
+#include "common/formats/json.h"
 #ifdef USE_SDL_NET
 #include "backends/networking/sdl_net/localwebserver.h"
 #endif
@@ -58,6 +59,7 @@ Common::String CloudManager::getStorageConfigName(uint32 index) const {
 	case kStorageOneDriveId: return "OneDrive";
 	case kStorageGoogleDriveId: return "GoogleDrive";
 	case kStorageBoxId: return "Box";
+	case kStorageWebDAV: return "WebDAV";
 	default:
 		break;
 	}
@@ -78,6 +80,9 @@ void CloudManager::loadStorage() {
 		break;
 	case kStorageBoxId:
 		_activeStorage = Box::BoxStorage::loadFromConfig(kStoragePrefix + getStorageConfigName(_currentStorageIndex) + "_");
+		break;
+	case kStorageWebDAV:
+		_activeStorage = WebDAV::WebDAVStorage::loadFromConfig(kStoragePrefix + getStorageConfigName(_currentStorageIndex) + "_");
 		break;
 	default:
 		_activeStorage = nullptr;
@@ -221,6 +226,18 @@ Common::String CloudManager::getStorageUsername(uint32 index) {
 	if (index >= _storages.size())
 		return "";
 	return _storages[index].username;
+}
+
+Common::String CloudManager::getStoragePassword(uint32 index) {
+	if (index >= _storages.size())
+		return "";
+	return _storages[index].password;
+}
+
+Common::String CloudManager::getStorageUrl(uint32 index) {
+	if (index >= _storages.size())
+		return "";
+	return _storages[index].url;
 }
 
 uint64 CloudManager::getStorageUsedSpace(uint32 index) {

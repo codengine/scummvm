@@ -46,6 +46,7 @@ enum StorageID {
 	kStorageOneDriveId = 2,
 	kStorageGoogleDriveId = 3,
 	kStorageBoxId = 4,
+	kStorageWebDAV = 5,
 
 	kStorageTotal
 };
@@ -54,7 +55,7 @@ class CloudManager : public Common::Singleton<CloudManager>, public Common::Even
 	static const char *const kStoragePrefix;
 
 	struct StorageConfig {
-		Common::String name, username;
+		Common::String name, username, password, url;
 		uint64 usedBytes;
 		Common::String lastSyncDate;
 	};
@@ -152,6 +153,8 @@ public:
 	 * @returns username or "" if index is invalid (no such Storage).
 	 */
 	Common::String getStorageUsername(uint32 index);
+	Common::String getStoragePassword(uint32 index);
+	Common::String getStorageUrl(uint32 index);
 
 	/**
 	 * Return space used by Storage.

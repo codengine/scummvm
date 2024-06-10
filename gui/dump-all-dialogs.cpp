@@ -21,6 +21,7 @@
 
 #include "gui/dump-all-dialogs.h"
 
+#include "backends/cloud/cloudmanager.h"
 #include "common/file.h"
 #include "common/fs.h"
 #include "common/language.h"
@@ -92,7 +93,7 @@ void dumpDialogs(const Common::String &message, const Common::String &lang) {
 
 #if defined(USE_CLOUD) && defined(USE_LIBCURL)
 	// CloudConnectingWizard
-	GUI::CloudConnectionWizard cloudConnectingWizard;
+	GUI::CloudConnectionWizard cloudConnectingWizard(Cloud::kStorageDropboxId);
 	handleSimpleDialog(cloudConnectingWizard, "cloudConnectingWizard" + suffix, surf);
 
 	// RemoteBrowserDialog
